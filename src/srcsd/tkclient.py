@@ -169,26 +169,28 @@ class WhisperClient(pykka.ThreadingActor):
 
         # app.process_text(text)
 
-    # upload
-    # file = {"file": ("test.mp3", open("test.mp3", "rb"))}
-    # UPLOAD_URL = ROOT_URL + "/test/upload"
-    # response = requests.post(url=UPLOAD_URL, files=file)
-    # debug(response.json())
+        """
+        options = {
+            "model": "tiny",
+            "language": "en",
+            "english": True,
+            "task": "transcribe"
+        }
 
-    # save
-    # SAVE_PATH = os.path.join(STORAGE_DIR, str(filename))
-    # Path(STORAGE_DIR).mkdir(parents=True, exist_ok=True)
-    # with open(SAVE_PATH, "wb") as out_file:
-        # content = response.content
-        # out_file.write(content)
+        URL = "http://localhost:8000/sr/transcribe"
+        file = {"file": ("test.wav", open("test.wav", "rb"))}
 
-    # download
-    # filename = "test.mp3"
-    # DOWNLOAD_URL = ROOT_URL + "/test/download"
-    # response = requests.post(
-        # url=DOWNLOAD_URL,
-        # params={"filename": filename}
-    # )
+        response = requests.post(
+            url=URL,
+            files=file,
+            params={
+                "options_str": json.dumps(options)
+            }
+        )
+
+        debug(response.json())
+        print(response.json())
+        """
 
 
 class LocalWhisper(pykka.ThreadingActor):

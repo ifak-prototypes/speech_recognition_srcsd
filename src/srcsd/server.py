@@ -12,14 +12,6 @@ app = FastAPI()
 (host, port) = ("localhost", 8000)
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(THIS_DIR, ".uploads")
-options = {
-    "model": "tiny",
-    "language": "en",
-    "english": True,
-    "task": "transcribe"
-}
-debug(options)
-print(options)
 
 
 # whisper
