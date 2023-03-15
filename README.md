@@ -65,4 +65,4 @@ The text input field contains the recognized text.
 ## Copyright and License Information
 
 Copyright (c) 2023, Institut für Automation und Kommunikation e.V. (ifak e.V.) and Keanu-Farell Kunzi.
-See the LICENSE file for licensing conditions (MIT license).
+See the [LICENSE](./LICENSE) file for licensing conditions (MIT license).
