@@ -9,25 +9,29 @@ of the program work in a non-blocking manner.
 
 import argparse
 import glob
-import logging
 import io
-from pydub import AudioSegment
-import pyautogui
-import pyperclip
-import speech_recognition as sr
+import logging
 import os
 import os.path
-import pykka
 import sys
+import time
 import tkinter
 import tkinter.messagebox
+from pathlib import Path
 from tkinter import ttk
-import time
+
+import pyautogui
+import pykka
+import pyperclip
+import requests
+import speech_recognition as sr
 import whisper
+from devtools import debug  # only for debug
+from pydub import AudioSegment
 
 
 class WhisperClient(pykka.ThreadingActor):
-    """An HTTP/REST client, which delegates translation / transcription tasks toan OpenAI Whisper server."""
+    """An HTTP client, which delegates translation / transcription tasks to an OpenAI Whisper server."""
 
     # TODO: This needs to be done
 
@@ -38,7 +42,36 @@ class WhisperClient(pykka.ThreadingActor):
 
     def process_audio(self, options: dict) -> str:
         """Takes a file path to a .wav file and returns the transcribed or translated text."""
+
+        # init
         self.options = options
+
+        ROOT_URL = "http://localhost:8000"
+        THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+        STORAGE_DIR = os.path.join(THIS_DIR, ".downloads")
+
+        # app.process_text(text)
+
+    # upload
+    # file = {"file": ("test.mp3", open("test.mp3", "rb"))}
+    # UPLOAD_URL = ROOT_URL + "/test/upload"
+    # response = requests.post(url=UPLOAD_URL, files=file)
+    # debug(response.json())
+
+    # save
+    # SAVE_PATH = os.path.join(STORAGE_DIR, str(filename))
+    # Path(STORAGE_DIR).mkdir(parents=True, exist_ok=True)
+    # with open(SAVE_PATH, "wb") as out_file:
+        # content = response.content
+        # out_file.write(content)
+
+    # download
+    # filename = "test.mp3"
+    # DOWNLOAD_URL = ROOT_URL + "/test/download"
+    # response = requests.post(
+        # url=DOWNLOAD_URL,
+        # params={"filename": filename}
+    # )
 
 
 class LocalWhisper(pykka.ThreadingActor):
