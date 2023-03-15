@@ -46,6 +46,25 @@ Run the following command in a shell:
     bash ./run.sh
 ```
 
+### Advanced setup options
+
+You may modify the run.bat or respectively the run.sh file when you want to modify the program behavior.
+For example when you are on a Linux machine and you definitely don't want to use the GPU, then you
+could modify the python program call in run.sh file to
+
+```
+    python src/srcsd/tkclient.py --device=cpu
+```
+
+There are following options:
+
+- device: one of [cpu, gpu]: defines, on which computing resource is computed. Otherwise a GPU is 
+          automatically detected. But when you have a GPU but with not enough memory for your wanted
+          model size, then you might use the CPU (which is much slower, but might work). The large
+          model needs at least 12GB VRAM in your GPU or by use of CPU in your RAM.
+- local: one of [true, false]: defines, whether the client uses local audio data processing or not.
+          In later case a remote GPU server can be used.
+
 
 ## Usage
 
@@ -60,6 +79,20 @@ The program contains the following setting options:
 - Insert via CTRL-V: Defines whether the system automatically puts the recognized text into the system clipboard and the CTRL-V key combination is automatically pressed.
 
 The text input field contains the recognized text.
+
+
+## Data privacy
+
+### Local data processing
+
+The program stores recorded audio files on the computer into the directory 'audio_data'.
+Processed audio data files will be deleted directly after converting them into text.
+If the program is killed, there could be residual files in the 'audio_data' directory.
+They can be safely deleted manually or they are deleted at the next program start.
+
+### Client/Server based audio data processing
+
+To be done.
 
 
 ## Copyright and License Information
