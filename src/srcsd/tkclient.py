@@ -17,17 +17,134 @@ import sys
 import time
 import tkinter
 import tkinter.messagebox
+import tkinter.ttk
 from pathlib import Path
 from tkinter import ttk
 
 import pyautogui
+import pydub
 import pykka
 import pyperclip
 import requests
+import speech_recognition
 import speech_recognition as sr
+import torch
 import whisper
 from devtools import debug  # only for debug
 from pydub import AudioSegment
+
+LANGUAGES = [
+    "Afrikaans",
+    "Albanian",
+    "Amharic",
+    "Arabic",
+    "Armenian",
+    "Assamese",
+    "Azerbaijani",
+    "Bashkir",
+    "Basque",
+    "Belarusian",
+    "Bengali",
+    "Bosnian",
+    "Breton",
+    "Bulgarian",
+    "Burmese",
+    "Castilian",
+    "Catalan",
+    "Chinese",
+    "Croatian",
+    "Czech",
+    "Danish",
+    "Dutch",
+    "English",
+    "Estonian",
+    "Faroese",
+    "Finnish",
+    "Flemish",
+    "French",
+    "Galician",
+    "Georgian",
+    "German",
+    "Greek",
+    "Gujarati",
+    "Haitian",
+    "Haitian Creole",
+    "Hausa",
+    "Hawaiian",
+    "Hebrew",
+    "Hindi",
+    "Hungarian",
+    "Icelandic",
+    "Indonesian",
+    "Italian",
+    "Japanese",
+    "Javanese",
+    "Kannada",
+    "Kazakh",
+    "Khmer",
+    "Korean",
+    "Lao",
+    "Latin",
+    "Latvian",
+    "Letzeburgesch",
+    "Lingala",
+    "Lithuanian",
+    "Luxembourgish",
+    "Macedonian",
+    "Malagasy",
+    "Malay",
+    "Malayalam",
+    "Maltese",
+    "Maori",
+    "Marathi",
+    "Moldavian",
+    "Moldovan",
+    "Mongolian",
+    "Myanmar",
+    "Nepali",
+    "Norwegian",
+    "Nynorsk",
+    "Occitan",
+    "Panjabi",
+    "Pashto",
+    "Persian",
+    "Polish",
+    "Portuguese",
+    "Punjabi",
+    "Pushto",
+    "Romanian",
+    "Russian",
+    "Sanskrit",
+    "Serbian",
+    "Shona",
+    "Sindhi",
+    "Sinhala",
+    "Sinhalese",
+    "Slovak",
+    "Slovenian",
+    "Somali",
+    "Spanish",
+    "Sundanese",
+    "Swahili",
+    "Swedish",
+    "Tagalog",
+    "Tajik",
+    "Tamil",
+    "Tatar",
+    "Telugu",
+    "Thai",
+    "Tibetan",
+    "Turkish",
+    "Turkmen",
+    "Ukrainian",
+    "Urdu",
+    "Uzbek",
+    "Valencian",
+    "Vietnamese",
+    "Welsh",
+    "Yiddish",
+    "Yoruba"
+]
 
 
 class WhisperClient(pykka.ThreadingActor):
@@ -87,7 +204,7 @@ class LocalWhisper(pykka.ThreadingActor):
     def init_model(self):
         """initialization of the whisper model."""
         model = self.options["model"]
-        english = self.options["language"] == "en"
+        english = self.options["language"] == "English"
         if model != "large" and english:
             model = model + ".en"
         self.audio_model = whisper.load_model(model)
@@ -102,7 +219,7 @@ class LocalWhisper(pykka.ThreadingActor):
 
         if old_model != model:
             self.model_initialized = False
-        if (old_language == "en" and language != "en") or (old_language != "en" and language == "en"):
+        if (old_language == "English" and language != "English") or (old_language != "English" and language == "English"):
             self.model_initialized = False
         if not self.model_initialized:
             self.init_model()
@@ -110,7 +227,7 @@ class LocalWhisper(pykka.ThreadingActor):
         self.options = options
 
         # create a text out of the audio file
-        result = self.audio_model.transcribe(filepath, language=language, task=self.options["task"])
+        result = self.audio_model.transcribe(filepath, language=language, fp16=self.options["use_gpu"], task=self.options["task"])
         text = result["text"]
 
         # call the gui for viewing or other kind of processing the text
@@ -155,7 +272,7 @@ class VoiceRecorder(pykka.ThreadingActor):
         energy = 300
         dynamic_energy = False
         pause = float(self.options["pause"])
-        self.recognizer = sr.Recognizer()
+        self.recognizer = speech_recognition.Recognizer()
         self.recognizer.energy_threshold = energy
         self.recognizer.pause_threshold = pause
         self.recognizer.dynamic_energy_threshold = dynamic_energy
@@ -163,16 +280,16 @@ class VoiceRecorder(pykka.ThreadingActor):
     def record(self) -> None:
         """Record human voice and save it into a file."""
         if self.perform_recording:
-            with sr.Microphone(sample_rate=16000) as source:
+            with speech_recognition.Microphone(sample_rate=16000) as source:
                 audio = self.recognizer.listen(source)
                 data = io.BytesIO(audio.get_wav_data())
-                audio_clip = AudioSegment.from_file(data)
+                audio_clip = pydub.AudioSegment.from_file(data)
                 file_name = str(int(time.time())) + ".wav"
                 target_file = os.path.join(self.target_dir, file_name)
                 audio_clip.export(target_file, format="wav")
 
-            # here we call the speech recognizer in a fire and forget format
-            # the recognizer will later asynchronously call this 
+            # Here we call the speech recognizer in a fire and forget format.
+            # The recognizer will keep care to inform the GUI of the results.
             self.speech_recognizer.process_audio(target_file, self.options)
     
     def record_loop(self) -> None:
@@ -201,7 +318,7 @@ def form_field(parent, text):
 def combobox(parent, text: str, options: list[str], default: int, cmd):
     """Creates a combobox in combination with a label."""
     container = form_field(parent, text)
-    combo: ttk.Combobox = ttk.Combobox(container, state="readonly", values=options)
+    combo: tkinter.ttk.Combobox = tkinter.ttk.Combobox(container, state="readonly", values=options)
     combo.current(default)
     combo.pack(side="right", padx=5)
     combo.bind('<<ComboboxSelected>>', cmd)
@@ -243,10 +360,10 @@ class App(tkinter.Tk):
         self.geometry("600x800")
 
         # construct the elements of the graphic user interface
-        frame = ttk.LabelFrame(self, text="Parameters")
+        frame = tkinter.ttk.LabelFrame(self, text="Parameters")
         frame.pack(padx=15, pady=15, fill="x")
         self.model_cb   = combobox(frame, "Model:", ["tiny", "base", "small", "medium", "large"], 0, self.options_changed)
-        self.language_cb   = combobox(frame, "Language:", ["de", "en"], 0, self.options_changed)
+        self.language_cb   = combobox(frame, "Language:", LANGUAGES, 30, self.options_changed)
         self.task_cb = combobox(frame, "Task:",  ["transcribe", "translate"], 0, self.options_changed)
         self.format_cb     = combobox(frame, "Format:", ["normal", "stripped"], 0, self.options_changed)
         pause_options = [str(float(i/10)) for i in range(5,51)]
@@ -254,7 +371,7 @@ class App(tkinter.Tk):
         self.active = checkbox(frame, "Active:", default=1, command=self.update_active)
         self.ctrl_c_ctrl_v = checkbox(frame, "Insert via CTRL-V:", default=1, command=self.update_active)
         
-        frame2 = ttk.LabelFrame(self, text="Text")
+        frame2 = tkinter.ttk.LabelFrame(self, text="Text")
         frame2.pack(padx=15, pady=15, fill="both", expand=True)
         self.text_area = textarea(frame2)
         self.update_options()
@@ -317,15 +434,31 @@ def get_options():
         help="Indicator, whether OpenAI Whisper will be instantiated locally; value is one of [true, false], default = true.",
         default="true",
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        help="Overwrites auto-detection of GPU; possible value is one of [cpu, gpu].",
+        #default="cpu",
+    )
 
     args = parser.parse_args()  # will stop the program if model is not defined
     possible_local_values = ["true", "false"]
     if args.local not in possible_local_values:
         default_local_value = parser.get_default("local")
-        logging.warning(f"'local' has no valid value. We reset it to '{default_local_value}'.")
+        logging.warning(f"'local' has no valid value. We reset it to '{default_local_value}'. The value should be one of {str(possible_local_values)}.")
         args.local = default_local_value
-        
     options["local"] = args.local.lower() == "true"
+        
+    if args.device is not None:
+        possible_device_values = ["cpu", "gpu"]
+        if args.device.lower() not in possible_device_values:
+            default_device_value = parser.get_default("device")
+            logging.warning(f"'device' has no valid value. We reset it to '{default_device_value}'. The value should be one of {str(possible_device_values)}.")
+            args.device = default_device_value
+        options["use_gpu"] = args.device.lower() == "gpu"
+    else:
+        options["use_gpu"] = torch.cuda.is_available()
+
     return options
 
 
