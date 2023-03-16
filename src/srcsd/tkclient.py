@@ -10,18 +10,14 @@ of the program work in a non-blocking manner.
 import argparse
 import glob
 import io
-import json
 import logging
 import ntpath
 import os
 import os.path
-import sys
 import time
 import tkinter
 import tkinter.messagebox
 import tkinter.ttk
-from pathlib import Path
-from tkinter import ttk
 
 import pyautogui
 import pydub
@@ -29,11 +25,9 @@ import pykka
 import pyperclip
 import requests
 import speech_recognition
-import speech_recognition as sr
 import torch
 import whisper
 from devtools import debug  # only for debug
-from pydub import AudioSegment
 
 LANGUAGES = [
     "Afrikaans",
@@ -148,6 +142,8 @@ LANGUAGES = [
     "Yoruba"
 ]
 
+TRANSCRIBE_ENDPOINT = "/sr/transcribe"
+
 
 class WhisperClient(pykka.ThreadingActor):
     """An HTTP client, which delegates translation / transcription tasks to an OpenAI Whisper server."""
@@ -164,16 +160,15 @@ class WhisperClient(pykka.ThreadingActor):
 
         # init
         self.options = options
-        ROOT_URL = "http://" + options["host"] + ":" + str(options["port"])
-        TRANSCRIBE_ENDPOINT = "/sr/transcribe"
+        root_url = "http://" + options["host"] + ":" + str(options["port"])
         
         # request transcription from server
         file = {"file": (ntpath.basename(filepath), open(filepath, "rb"))}
 
-        debug(ROOT_URL)
+        debug(root_url)
 
         response = requests.post(
-            url= ROOT_URL + TRANSCRIBE_ENDPOINT,
+            url= root_url + TRANSCRIBE_ENDPOINT,
             files=file,
             params={
                 "model": options["model"],

@@ -1,16 +1,19 @@
-import os
-import shutil
-from pathlib import Path
-import logging
 import argparse
+import logging
+import os
+import pathlib
+import shutil
 
+import fastapi
 import uvicorn
 import whisper
 from devtools import debug  # only for debug
-from fastapi import FastAPI, UploadFile, responses
 
 # init
-app = FastAPI()
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+STORAGE_DIR = os.path.join(THIS_DIR, ".uploads")
+
+app = fastapi.FastAPI()
 
 parser = argparse.ArgumentParser(description="Server for transcribing files using OpenAI Whisper.")
 parser.add_argument(
@@ -32,9 +35,6 @@ if args.host is not None:
     host = args.host.lower()
 if args.port is not None:
     port = args.port
-
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-STORAGE_DIR = os.path.join(THIS_DIR, ".uploads")
 
 # cleanup ./uploads
 try:
@@ -74,24 +74,24 @@ async def process_audio(filepath: str, model: str, language: str, task: str) -> 
 @app.get("/")
 async def redirect_docs():
     """root endpoint (redirecting to /docs)"""
-    return responses.RedirectResponse(url="/docs", status_code=302)
+    return fastapi.responses.RedirectResponse(url="/docs", status_code=302)
 
 # transcribe endpoint
 @app.post("/sr/transcribe")
-async def transcribe_file(file: UploadFile, model: str, language: str, task: str):
+async def transcribe_file(file: fastapi.UploadFile, model: str, language: str, task: str):
     """endpoint for transcribing a .wav file"""
 
     # path
-    SAVE_PATH = os.path.join(STORAGE_DIR, str(file.filename))
+    save_path= os.path.join(STORAGE_DIR, str(file.filename))
 
     # save
-    Path(STORAGE_DIR).mkdir(parents=True, exist_ok=True)
-    with open(SAVE_PATH, "wb") as out_file:
+    pathlib.Path(STORAGE_DIR).mkdir(parents=True, exist_ok=True)
+    with open(save_path, "wb") as out_file:
         content = await file.read()
         out_file.write(content)
 
     # transcribe
-    return {"text": await process_audio(SAVE_PATH, model, language, task)}
+    return {"text": await process_audio(save_path, model, language, task)}
 
 # start
 uvicorn.run(app=app, host=host, port=port)
