@@ -1,6 +1,8 @@
-import json
 import os
+import shutil
 from pathlib import Path
+import logging
+import argparse
 
 import uvicorn
 import whisper
@@ -9,33 +11,58 @@ from fastapi import FastAPI, UploadFile, responses
 
 # init
 app = FastAPI()
+
+parser = argparse.ArgumentParser(description="Server for transcribing files using OpenAI Whisper.")
+parser.add_argument(
+    "--host",
+    type=str,
+    help="server hostname to connect to if local=false; default is localhost",
+    default="localhost"
+)
+parser.add_argument(
+    "--port",
+    type=int,
+    help="server port to connect to on the host if local=false; default is 8000",
+    default=8000
+)
+args = parser.parse_args()
+
 (host, port) = ("localhost", 8000)
+if args.host is not None:
+    host = args.host.lower()
+if args.port is not None:
+    port = args.port
+
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(THIS_DIR, ".uploads")
 
+# cleanup ./uploads
+try:
+    shutil.rmtree(STORAGE_DIR)
+    logging.info("CleanupInfo: Deleted .uploads")
+except FileNotFoundError:
+    logging.info(f"CleanupInfo: Skipping cleanup: No such directory: \'{STORAGE_DIR}\'")
 
 # whisper
-def init_model(options: dict):
+async def init_model(model: str, language: str):
     """initialization of the whisper model."""
     
-    model = options["model"]
-    english = options["language"] == "en"
+    english = language == "en"
     if model != "large" and english:
-        model = model + ".en" # TODO
+        model = model + ".en"
     return whisper.load_model(model)   
 
-def process_audio(filepath: str, options: dict) -> str:
+async def process_audio(filepath: str, model: str, language: str, task: str) -> str:
     """Takes a file path to a .wav file and returns the transcribed or translated text."""
-    
+
     # init
-    audio_model = init_model(options)
-    language = options["language"]
+    audio_model = await init_model(model, language)
 
     # create a text out of the audio file
     result = audio_model.transcribe(
         filepath,
-        language=options["language"],
-        task=options["task"]
+        language=language,
+        task=task
     )
 
     # cleanup
@@ -45,16 +72,14 @@ def process_audio(filepath: str, options: dict) -> str:
 
 # root endpoint (redirect => /docs)
 @app.get("/")
-def redirect_docs():
+async def redirect_docs():
     """root endpoint (redirecting to /docs)"""
     return responses.RedirectResponse(url="/docs", status_code=302)
 
 # transcribe endpoint
 @app.post("/sr/transcribe")
-async def transcribe_file(file: UploadFile, options_str: str):
+async def transcribe_file(file: UploadFile, model: str, language: str, task: str):
     """endpoint for transcribing a .wav file"""
-
-    options = json.loads(options_str)
 
     # path
     SAVE_PATH = os.path.join(STORAGE_DIR, str(file.filename))
@@ -66,42 +91,7 @@ async def transcribe_file(file: UploadFile, options_str: str):
         out_file.write(content)
 
     # transcribe
-    return process_audio(SAVE_PATH, options)
-
-# upload endpoint
-@app.post("/test/upload")
-async def upload_file(file: UploadFile):
-    """endpoint for uploading files"""
-
-    # path
-    SAVE_PATH = os.path.join(STORAGE_DIR, str(file.filename))
-
-    # type check
-    if not file.content_type.startswith('audio/wav'):
-        return {"error": "File must be in WAV format."}
-
-    # save
-    Path(STORAGE_DIR).mkdir(parents=True, exist_ok=True)
-    with open(SAVE_PATH, "wb") as out_file:
-        content = await file.read()
-        out_file.write(content)
-
-    # confirm
-    return {
-        "filename": file.filename,
-        "saved_to": SAVE_PATH
-    }
-
-# download endpoint
-@app.post("/test/download")
-async def download_file(filename: str):
-    """endpoint for downloading files"""
-
-    # path
-    SAVE_PATH = os.path.join(STORAGE_DIR, filename)
-
-    # return download
-    return responses.FileResponse(path=SAVE_PATH, filename=filename)
+    return {"text": await process_audio(SAVE_PATH, model, language, task)}
 
 # start
 uvicorn.run(app=app, host=host, port=port)
