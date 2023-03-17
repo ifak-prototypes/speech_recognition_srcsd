@@ -9,22 +9,25 @@ of the program work in a non-blocking manner.
 
 import argparse
 import glob
-import logging
 import io
-import pydub
-import pyautogui
-import pyperclip
-import speech_recognition
+import logging
+import ntpath
 import os
 import os.path
-import pykka
-import sys
+import time
 import tkinter
 import tkinter.messagebox
 import tkinter.ttk
-import time
+
+import pyautogui
+import pydub
+import pykka
+import pyperclip
+import requests
+import speech_recognition
 import torch
 import whisper
+from devtools import debug  # only for debug
 
 LANGUAGES = [
     "Afrikaans",
@@ -139,9 +142,11 @@ LANGUAGES = [
     "Yoruba"
 ]
 
+TRANSCRIBE_ENDPOINT = "/sr/transcribe"
+
 
 class WhisperClient(pykka.ThreadingActor):
-    """An HTTP/REST client, which delegates translation / transcription tasks toan OpenAI Whisper server."""
+    """An HTTP client, which delegates translation / transcription tasks to an OpenAI Whisper server."""
 
     # TODO: This needs to be done
 
@@ -150,9 +155,30 @@ class WhisperClient(pykka.ThreadingActor):
         self.app = app
         self.options = options
 
-    def process_audio(self, options: dict) -> str:
+    def process_audio(self, filepath: str, options: dict) -> str:
         """Takes a file path to a .wav file and returns the transcribed or translated text."""
+
+        # init
         self.options = options
+        root_url = "http://" + options["host"] + ":" + str(options["port"])
+        
+        # request transcription from server
+        file = {"file": (ntpath.basename(filepath), open(filepath, "rb"))}
+
+        debug(root_url)
+
+        response = requests.post(
+            url= root_url + TRANSCRIBE_ENDPOINT,
+            files=file,
+            params={
+                "model": options["model"],
+                "language": options["language"],
+                "task": options["task"]
+            }
+        )
+
+        text = response.json()["text"]
+        self.app.process_text(text)
 
 
 class LocalWhisper(pykka.ThreadingActor):
@@ -401,11 +427,24 @@ def get_options():
     parser.add_argument(
         "--device",
         type=str,
-        help="Overwrites auto-detection of GPU; possible value is one of [cpu, gpu].",
+        help="Overwrites auto-detection of GPU; value is one of [cpu, gpu].",
         #default="cpu",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        help="server hostname to connect to if local=false; default is localhost",
+        default="localhost"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        help="server port to connect to on the host if local=false; default is 8000",
+        default=8000
     )
 
     args = parser.parse_args()  # will stop the program if model is not defined
+    
     possible_local_values = ["true", "false"]
     if args.local not in possible_local_values:
         default_local_value = parser.get_default("local")
@@ -422,6 +461,16 @@ def get_options():
         options["use_gpu"] = args.device.lower() == "gpu"
     else:
         options["use_gpu"] = torch.cuda.is_available()
+
+    if args.host is not None:
+        options["host"] = args.host.lower()
+    else:
+        options["host"] = "localhost"
+    
+    if args.port is not None:
+        options["port"] = args.port
+    else:
+        options["port"] = 8000
 
     return options
 

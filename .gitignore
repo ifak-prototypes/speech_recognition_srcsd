@@ -18,3 +18,11 @@ __pycache__
 
 # PyCharm files
 .idea
+
+
+# Temporary file transfer
+.downloads
+.uploads
+
+# Test files
+test.*

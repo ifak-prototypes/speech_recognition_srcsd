@@ -21,18 +21,31 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
+        "Topic :: Multimedia :: Sound/Audio :: Speech"
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     include_package_data=True,
     install_requires=[
+        "devtools",
+        "fastapi",
+        "openai-whisper @ git+https://github.com/openai/whisper.git",
         "PyAudio",
-        "SpeechRecognition==3.8.1",
-        "pydub",
         "pyautogui",
-        "pyperclip",
+        "pydub",
+        "pygments",
         "pykka",
-        "openai-whisper @ git+https://github.com/openai/whisper.git"
+        "pyperclip",
+        "python-multipart",
+        "requests",
+        "SpeechRecognition==3.8.1",
+        "uvicorn"
         ],
-    python_requires=">=3.10",
+    extras_require={
+        "dev": [
+            "mypy",
+            "types-requests"
+        ]
+    },
+    python_requires=">=3.10"
 )
