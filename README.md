@@ -66,7 +66,7 @@ There are following options:
 | port | port to use for requests to the host, default is `8000` |
 
 
-## Start the sever
+## Start the server
 
 The server is only used, if you start the app with with `local` set to `false`. (see "Advanced setup options")
 
@@ -92,14 +92,13 @@ You may modify the `run_server.bat` or respectively the `run_server.sh` file whe
 For example when you are on a Linux machine and you want to host the server on port `4000`, you can modify the python program call in `run_server`.sh:
 
 ```
-    python src/srcsd/tkclient.py --port=4000
+    python src/srcsd/server.py --port=4000
 ```
 
 There are following options:
 
 | Setting | Explanation |
 |---------|-------------|
-| host | string representing the hostname to be used, default is `localhost` |
 | port | port to listen for requests on, default is `8000`  |
 
 

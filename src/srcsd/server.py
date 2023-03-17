@@ -17,12 +17,6 @@ app = fastapi.FastAPI()
 
 parser = argparse.ArgumentParser(description="Server for transcribing files using OpenAI Whisper.")
 parser.add_argument(
-    "--host",
-    type=str,
-    help="server hostname to connect to if local=false; default is localhost",
-    default="localhost"
-)
-parser.add_argument(
     "--port",
     type=int,
     help="server port to connect to on the host if local=false; default is 8000",
@@ -30,9 +24,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-(host, port) = ("localhost", 8000)
-if args.host is not None:
-    host = args.host.lower()
+port = 8000
 if args.port is not None:
     port = args.port
 
@@ -94,4 +86,4 @@ async def transcribe_file(file: fastapi.UploadFile, model: str, language: str, t
     return {"text": await process_audio(save_path, model, language, task)}
 
 # start
-uvicorn.run(app=app, host=host, port=port)
+uvicorn.run(app=app, host="0.0.0.0", port=port)
